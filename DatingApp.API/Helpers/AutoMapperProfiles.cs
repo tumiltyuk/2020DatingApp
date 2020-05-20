@@ -8,7 +8,7 @@ namespace DatingApp.API.Helpers
     public class AutoMapperProfiles : Profile
     {
         public AutoMapperProfiles()
-        {
+        {   // Map from "Source" to "Destination"
             CreateMap<User, UserForListDto>()
                 .ForMember(dest => dest.PhotoUrl, opt =>                                // Map INTO destination
                     opt.MapFrom(src => src.Photos.FirstOrDefault(p => p.IsMain).Url))  // FROM Source WHERE FirstOrDefault IsMain and get Url from here
@@ -22,6 +22,8 @@ namespace DatingApp.API.Helpers
                     opt.MapFrom(src => src.DateOfBirth.CalculateAge()));
             
             CreateMap<Photo, PhotosForDetailedDto>();
+
+            CreateMap<UserForUpdateDto, User>();
         }
         
     }

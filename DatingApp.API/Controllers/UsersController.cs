@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using AutoMapper;
 using DatingApp.API.Data;
@@ -38,6 +40,24 @@ namespace DatingApp.API.Controllers
             var userToReturn = _mapper.Map<UserForDetailedDto>(user);
 
             return Ok(userToReturn);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateUser(int id, UserForUpdateDto userForUpdateDto)
+        {
+            // Check that user completing update is User associated to update -
+            // In other words a User CANNOT update someone elses user details
+            if (id != int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value)) // "User.FindFirst(ClaimTypes.NameIdentifier).Value"  is obtained from token
+                return Unauthorized();                                            // NameIdentifier is the id
+
+            // _repo or DatingRepository holds data that Enitiy Framework will use to extract/ place into Database
+            var userFromRepo = await _repo.GetUser(id);
+            _mapper.Map(userForUpdateDto, userFromRepo);    // Source --> Destination
+
+            if (await _repo.SaveAll())
+                return NoContent();
+
+            throw new Exception($"Updating user {id} failed on save.");
         }
 
     }

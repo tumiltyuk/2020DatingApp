@@ -19,18 +19,30 @@ export class UserService {
 constructor(private http: HttpClient) { }
 
   getUsers(): Observable<User[]> {
-                                      // Old Version - Need use of const httpOptions variable declared above
+    // Old Version - Need use of const httpOptions variable declared above
     // return this.http.get<User[]>(this.baseUrl + 'users', httpOptions);
-    return this.http.get<User[]>(this.baseUrl + 'users');                 // New Version
+
+    // New Version
+    return this.http.get<User[]>(this.baseUrl + 'users');
   }
 
   getUser(id): Observable<User>{
-                                      // Old Version - Need use of const httpOptions variable declared above
+    // Old Version - Need use of const httpOptions variable declared above
     // return this.http.get<User>(this.baseUrl + 'users/' + id, httpOptions);
-    return this.http.get<User>(this.baseUrl + 'users/' + id);             // New Version
+
+    // New Version
+    return this.http.get<User>(this.baseUrl + 'users/' + id);
   }
 
   updateUser(id: number, user: User) {
     return this.http.put(this.baseUrl + 'users/' + id, user);
+  }
+
+  setMainPhoto(userId: number, id: number) {
+    return this.http.post(this.baseUrl + 'users/' + userId + '/photos/' + id + '/setMain', {});
+  }
+
+  deletePhoto(userId: number, id: number) {
+    return this.http.delete(this.baseUrl + 'users/' + userId + '/photos/' + id);
   }
 }

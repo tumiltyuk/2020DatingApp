@@ -9,6 +9,7 @@ namespace DatingApp.API.Models
         public string Description { get; set; }
         public DateTime DateAdded { get; set; }
         public bool IsMain { get; set; }
+        public string PublicId { get; set; }
 
         // By Convention EF will recognise this line and the one below to assign a many to many relationship. Meaning both User and Photo data will be deleted together.
         public User User { get; set; } 

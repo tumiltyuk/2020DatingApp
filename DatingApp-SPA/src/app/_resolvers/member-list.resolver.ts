@@ -9,6 +9,9 @@ import { catchError } from 'rxjs/operators';
 @Injectable()
 export class MemberListResolver implements Resolve<User[]> {
 
+    pageNumber = 1;
+    pageSize = 5;
+
     constructor(
         private userService: UserService,
         private router: Router,
@@ -16,7 +19,7 @@ export class MemberListResolver implements Resolve<User[]> {
     ) {}
 
     resolve(route: ActivatedRouteSnapshot): Observable<User[]> {  // give method a route and return an observabe object of type User[]
-        return this.userService.getUsers()
+        return this.userService.getUsers(this.pageNumber, this.pageSize)
 
             .pipe(  // Catch error if a problem
                 catchError(error => {

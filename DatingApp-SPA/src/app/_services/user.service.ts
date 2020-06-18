@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
 import { environment } from 'src/environments/environment';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { User } from '../_models/user';
+import { PaginatedResult } from '../_models/pagination';
+import { map } from 'rxjs/operators';
 
 // const httpOptions = {
 //   headers: new HttpHeaders({
@@ -18,13 +20,40 @@ export class UserService {
 
 constructor(private http: HttpClient) { }
 
-  getUsers(): Observable<User[]> {
-    // Old Version - Need use of const httpOptions variable declared above
-    // return this.http.get<User[]>(this.baseUrl + 'users', httpOptions);
+// --- Old Version for getUsers--- Need use of const httpOptions variable declared above ***
+// getUsers(): Observable<User[]> {
+//   return this.http.get<User[]>(this.baseUrl + 'users', httpOptions);
+// }
 
-    // New Version
-    return this.http.get<User[]>(this.baseUrl + 'users');
+// *** New Version for getUsers***
+getUsers(page?, itemsPerPage?, userParams?): Observable<PaginatedResult<User[]>> {
+  const paginatedResult: PaginatedResult<User[]> = new PaginatedResult<User[]>();
+
+  let params = new HttpParams();
+
+  if (page != null && itemsPerPage != null) {
+    params = params.append('pageNumber', page);
+    params = params.append('pageSize', itemsPerPage);
   }
+
+  if (userParams != null) {
+    params = params.append('minAge', userParams.minAge);
+    params = params.append('maxAge', userParams.maxAge);
+    params = params.append('gender', userParams.gender);
+    params = params.append('orderBy', userParams.orderBy);
+  }
+
+  return this.http.get<User[]>(this.baseUrl + 'users', {observe: 'response', params})
+    .pipe(
+      map(response => {
+        paginatedResult.result = response.body;
+        if (response.headers.get('Pagination') != null) {
+          paginatedResult.pagination = JSON.parse(response.headers.get('pagination'))
+        }
+        return paginatedResult;
+      })
+    );
+}
 
   getUser(id): Observable<User>{
     // Old Version - Need use of const httpOptions variable declared above

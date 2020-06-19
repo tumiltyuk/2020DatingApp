@@ -26,6 +26,12 @@ namespace DatingApp.API.Data
             _context.Remove(entity);
         }
 
+        public async Task<Like> GetLike(int userId, int recipientId)
+        {
+            return await _context.Likes.FirstOrDefaultAsync(u => 
+                u.LikerId == userId && u.LikeeId == recipientId);
+        }
+
         public async Task<Photo> GetMainPhotoForUser(int userId)
         {
             return await _context.Photos.Where(u => u.UserId == userId)
@@ -53,6 +59,18 @@ namespace DatingApp.API.Data
             // --- Query Conditions ---
             users = users.Where(u => u.Id != userParams.UserId); // dont return the currently logged on user profile
             users = users.Where(u => u.Gender == userParams.Gender); // Dont return same sex matches (userParams contain oposite sex to user) --- TODO - need to fix this in future work
+            
+            if (userParams.Likers)
+            {
+                var userLikers = await GetUserLikesList(userParams.UserId, userParams.Likers);
+                users = users.Where(u => userLikers.Contains(u.Id));
+            }
+            if (userParams.Likees)
+            {
+                var userLikees = await GetUserLikesList(userParams.UserId, userParams.Likers);
+                users = users.Where(u => userLikees.Contains(u.Id));
+            }
+
             if (userParams.MinAge != 18 || userParams.MaxAge != 99) 
             {
                 var minDob = DateTime.Today.AddYears(- userParams.MaxAge - 1);
@@ -73,6 +91,27 @@ namespace DatingApp.API.Data
             }
 
             return await PagedList<User>.CreateAsync(users, userParams.PageNumber, userParams.PageSize);
+        }
+
+        private async Task<IEnumerable<int>> GetUserLikesList(int userId, bool likers)
+        {
+            var user = await _context.Users
+                .Include(x => x.Likers)
+                .Include(x => x.Likees)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (likers) // return people who have "liked" the currently logged in user
+            {
+                return user.Likers
+                    .Where(u => u.LikeeId == userId)
+                    .Select(i => i.LikerId);
+            }
+            else // return people who the currently logged in user has "liked" 
+            {
+                return user.Likees
+                    .Where(u => u.LikerId == userId)
+                    .Select(u => u.LikeeId);
+            }
         }
 
         public async Task<bool> SaveAll()

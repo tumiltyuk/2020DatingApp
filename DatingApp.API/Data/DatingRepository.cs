@@ -118,5 +118,61 @@ namespace DatingApp.API.Data
         {   // if something saved to db then SaveChangesAsync will return 1 "true", otherwise it will return 0 "false"
             return await _context.SaveChangesAsync() > 0;            
         }
+
+        public async Task<Message> GetMessage(int id)
+        {
+            return await _context.Messages.FirstOrDefaultAsync(m => m.Id == id);
+        }
+
+        public async Task<PagedList<Message>> GetMessagesForUser(MessageParams messageParams)
+        {
+            // Get ALL Messages
+            var messages = _context.Messages
+                .Include(u => u.Sender).ThenInclude(p => p.Photos)
+                .Include(u => u.Recipient).ThenInclude(p => p.Photos)
+                .AsQueryable();
+
+            // Then Filer out Results
+            switch (messageParams.MessageContainer)
+            {
+                case "Inbox":       // Messages for Recipient (current user)
+                    messages = messages.Where(u => u.RecipientId == messageParams.UserId
+                                                && u.RecipientDeleted == false);
+                break;
+                case "Outbox":      // Messages for Sender - (sent items by current user)
+                    messages = messages.Where(u => u.SenderId == messageParams.UserId
+                                                && u.SenderDeleted == false);
+                break;
+                default:            // Messages for Recipient (current User) and is not a read message
+                    messages = messages.Where(u => u.RecipientId == messageParams.UserId
+                                                    && u.RecipientDeleted == false 
+                                                    && u.IsRead == false);
+                break;
+            }
+
+            // Order messages
+            messages = messages.OrderByDescending(d => d.MessageSent);
+
+            return await PagedList<Message>.CreateAsync(messages, messageParams.PageNumber, messageParams.PageSize);
+        }
+
+        public async Task<IEnumerable<Message>> GetMessageThread(int userId, int recipientId)
+        {
+            // Get ALL Messages
+            var messages = await _context.Messages
+                .Include(u => u.Sender).ThenInclude(p => p.Photos)
+                .Include(u => u.Recipient).ThenInclude(p => p.Photos)
+                .Where(m => m.RecipientId == userId         // Return Messages WHERE recipient is the current logged on user (Recived messages)
+                            && m.SenderId == recipientId        // Where the current logged on user is the recipient
+                            && m.RecipientDeleted == false      // Where the recipient has not deleted the message
+
+                        || m.RecipientId == recipientId     // OR Where the current user has sent a message to a receipient (Sent messages)
+                            && m.SenderId == userId             // Where the current user IS The sender
+                            && m.SenderDeleted == false)        // Where the Sender has NOT deleted the message
+                .OrderByDescending(m => m.MessageSent)
+                .ToListAsync();
+
+            return messages;
+        }
     }
 }

@@ -102,11 +102,8 @@ namespace DatingApp.API
                         }
                     });
                 });
-                app.UseHsts();  // ** added at section 191 - Adding to Azure - Can remove otherwise
             }
-            
-            app.UseHttpsRedirection();  // ** added at section 191 - Adding to Azure - Can remove otherwise
-            
+
             app.UseRouting();
             app.UseAuthentication();
             app.UseAuthorization();

@@ -58,7 +58,8 @@ export class PhotoEditorComponent implements OnInit {
           url: res.url,
           dateAdded: res.dateAdded,
           description: res.description,
-          isMain: res.isMain
+          isMain: res.isMain,
+          isApproved: res.isApproved
         };
         // Then push photo object from response into our photo[] which is displaying the photos in the photo-editor component
         this.photos.push(photo);

@@ -10,58 +10,113 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using System.Collections.Generic;
 
 namespace DatingApp.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [AllowAnonymous]
     public class AuthController : ControllerBase
     {
-        private readonly IAuthRepository _repo;
+        // private readonly IAuthRepository _repo;
         private readonly IConfiguration _config;
         private readonly IMapper _mapper;
+        private readonly UserManager<User> _userManager;
+        private readonly SignInManager<User> _signInManager;
 
         public AuthController(
-            IAuthRepository repo,
+            // IAuthRepository repo,
             IConfiguration config,
-            IMapper mapper)
+            IMapper mapper,
+            UserManager<User> userManager,
+            SignInManager<User> signInManager)
         {
-            _repo = repo;
+            //_repo = repo; // No longer needed for Identity Management
             _config = config;
             _mapper = mapper;
+            _userManager = userManager;
+            _signInManager = signInManager;
         }
 
         [HttpPost("Register")]
         public async Task<IActionResult> Register(UserForRegisterDto userForRegisterDto)
         {
-            userForRegisterDto.Username = userForRegisterDto.Username.ToLower();
+            // // Previous Version of Login -
+            // userForRegisterDto.Username = userForRegisterDto.Username.ToLower();
+            // if (await _repo.UserExists(userForRegisterDto.Username))
+            // //     return BadRequest("User already exists");
+            // var userToCreate = _mapper.Map<User>(userForRegisterDto);
+            // var createdUser = await _repo.Register(userToCreate, userForRegisterDto.Password);
+            // var userToReturn = _mapper.Map<UserForDetailedDto>(createdUser);
 
-            if (await _repo.UserExists(userForRegisterDto.Username))
-                return BadRequest("User already exists");
+            // return CreatedAtRoute("GetUser", new {controller = "Users", id = createdUser.Id}, userToReturn); 
 
             var userToCreate = _mapper.Map<User>(userForRegisterDto);
-            var createdUser = await _repo.Register(userToCreate, userForRegisterDto.Password);
-            var userToReturn = _mapper.Map<UserForDetailedDto>(createdUser);
+            var result = await _userManager.CreateAsync(userToCreate, userForRegisterDto.Password);
 
-            return CreatedAtRoute("GetUser", new {controller = "Users", id = createdUser.Id}, userToReturn); 
+            var userToReturn = _mapper.Map<UserForDetailedDto>(userToCreate);
+
+            if (result.Succeeded)
+            {
+                return CreatedAtRoute("GetUser", new {controller = "Users", id = userToCreate.Id}, userToReturn); 
+            }
+
+            return BadRequest(result.Errors);
         }
 
         [HttpPost("Login")]
         public async Task<IActionResult> Login(UserForLoginDto userForLoginDto)
         {
-            
-            var userFromRepo = await _repo.Login(userForLoginDto.Username.ToLower(), 
-            userForLoginDto.Password);
+            // // Previous Version of Login -
+            // var userFromRepo = await _repo.Login(userForLoginDto.Username.ToLower(), 
+            // userForLoginDto.Password);
+            // if (userFromRepo == null)
+            //     return Unauthorized();
+            // // Generate user Object for Client side storage
+            // var user = _mapper.Map<UserForClientStorageDto>(userFromRepo);
 
-            if (userFromRepo == null)
-                return Unauthorized();
+            // // Return token as an object to the Client
+            // return Ok(new {
+            //     token = GenerateJwtToken(userFromRepo),
+            //     user 
+            // });
 
+            // Using .NetCore "Identity" approach
+            var userFromRepo = await _userManager.FindByNameAsync(userForLoginDto.Username);
+            var result = await _signInManager.CheckPasswordSignInAsync(userFromRepo, userForLoginDto.Password, false);
+
+            if (result.Succeeded)
+            {
+                // Generate user Object for Client side storage
+                var appUser = _mapper.Map<UserForClientStorageDto>(userFromRepo);
+
+                // Return token as an object to the Client
+                return Ok(new {
+                    token = GenerateJwtToken(userFromRepo).Result,
+                    user = appUser 
+                });
+            }
+            return Unauthorized();
+        }
+
+        private async Task<string> GenerateJwtToken(User user)
+        {
             //Build Token to return to user (Token to contain "Claims": Username and UserId)
-            var claims = new[]
+            var claims = new List<Claim>
             {   // Claim is a key value pair:  Claim Type & Value
-                new Claim(ClaimTypes.NameIdentifier, userFromRepo.Id.ToString()),   // User Id
-                new Claim(ClaimTypes.Name, userFromRepo.Username)                   // Username
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),   // User Id
+                new Claim(ClaimTypes.Name, user.UserName)                   // UserName
             };
+
+            var roles = await _userManager.GetRolesAsync(user);
+
+            foreach (var role in roles)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, role));
+            }
 
             // Generate "Key" to sign our token - (Hashed)  - Used for Validation check when future calls are made back from the client
             //[Key is stored in our appsettings.json - value in here should be at least 12 char long and be a complicated string or random gen text]
@@ -85,15 +140,7 @@ namespace DatingApp.API.Controllers
             // Generate Token
             var token = tokenHandler.CreateToken(tokenDescriptor);
 
-            // Generate user Object for Client side storage
-            var user = _mapper.Map<UserForClientStorageDto>(userFromRepo);
-
-            // Return token as an object to the Client
-            return Ok(new {
-                token = tokenHandler.WriteToken(token),
-                user 
-            });
-
+            return tokenHandler.WriteToken(token);
         }
 
     }
